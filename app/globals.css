@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* RainbowKit custom styles */
+:root {
+  --rk-colors-accentColor: #3b82f6;
+  --rk-colors-accentColorForeground: #ffffff;
+  --rk-colors-actionButtonBorder: rgba(255, 255, 255, 0.1);
+  --rk-colors-actionButtonSecondaryBackground: rgba(255, 255, 255, 0.06);
+  --rk-colors-connectButtonBackground: #3b82f6;
+  --rk-colors-connectButtonBackgroundError: #ff4b4b;
+  --rk-colors-connectButtonInnerBackground: #ffffff;
+  --rk-colors-connectButtonText: #ffffff;
+  --rk-colors-connectButtonTextError: #ffffff;
+  --rk-colors-connectionIndicator: #30e000;
+  --rk-colors-error: #ff4b4b;
+  --rk-colors-modalBackground: #ffffff;
+  --rk-colors-modalBackdrop: rgba(0, 0, 0, 0.5);
+  --rk-colors-modalBorder: rgba(255, 255, 255, 0.1);
+  --rk-colors-modalText: #171717;
+  --rk-colors-modalTextSecondary: #666666;
+  --rk-colors-profileAction: rgba(255, 255, 255, 0.06);
+  --rk-colors-profileActionHover: rgba(255, 255, 255, 0.1);
+  --rk-colors-profileForeground: #171717;
+  --rk-colors-selectedOptionBorder: #3b82f6;
+  --rk-colors-standby: #ffd641;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --rk-colors-modalBackground: #1a1a1a;
+    --rk-colors-modalText: #ffffff;
+    --rk-colors-modalTextSecondary: #a0a0a0;
+    --rk-colors-profileForeground: #ffffff;
+  }
+}
+
+/* RainbowKit wrapper styles */
+.rainbow-kit-wrapper {
+  position: relative;
+  z-index: 50;
+}
+
+.rainbow-kit-wrapper button {
+  background-color: var(--rk-colors-connectButtonBackground) !important;
+  color: var(--rk-colors-connectButtonText) !important;
+  border-radius: 0.5rem !important;
+  padding: 0.5rem 1rem !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.rainbow-kit-wrapper button:hover {
+  opacity: 0.9 !important;
+  transform: translateY(-1px) !important;
+}
