@@ -6,12 +6,17 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { parseEther, formatEther } from 'viem';
 import { DonationContractABI, CONTRACT_ADDRESS, RECIPIENT_ADDRESS } from './contracts/DonationContract';
 import { baseSepolia } from 'wagmi/chains';
+import lighthouse from '@lighthouse-web3/sdk';
+import Link from 'next/link';
 
 export default function Home() {
   const [amount, setAmount] = useState('');
+  const [message, setMessage] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [totalDonations, setTotalDonations] = useState('0');
+  const [isUploading, setIsUploading] = useState(false);
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
 
@@ -92,6 +97,8 @@ export default function Home() {
     if (isSuccess) {
       setSuccess('Thank you for your donation!');
       setAmount('');
+      setMessage('');
+      setName('');
     }
   }, [isSuccess]);
 
@@ -109,6 +116,16 @@ export default function Home() {
       return;
     }
 
+    if (!message || message.length < 50) {
+      setError('Please enter a message with at least 50 characters');
+      return;
+    }
+
+    if (!name || name.trim().length === 0) {
+      setError('Please enter your name');
+      return;
+    }
+
     const donationAmount = parseEther(amount);
     
     // Check if user has enough balance
@@ -118,6 +135,24 @@ export default function Home() {
     }
 
     try {
+      setIsUploading(true);
+      
+      // Upload message to Lighthouse
+      const response = await lighthouse.uploadText(
+        JSON.stringify({
+          name: name.trim(),
+          message,
+          timestamp: new Date().toISOString(),
+          donor: address
+        }),
+        process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY || '',
+        `donation-${name.trim().toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`
+      );
+
+      if (!response.data?.Hash) {
+        throw new Error('Failed to upload message to Lighthouse');
+      }
+
       const tx = await writeContract({
         abi: DonationContractABI,
         address: CONTRACT_ADDRESS as `0x${string}`,
@@ -126,6 +161,8 @@ export default function Home() {
       });
 
       setSuccess('Transaction sent! Waiting for confirmation...');
+      setMessage('');
+      setName('');
     } catch (error: any) {
       console.error('Donation failed:', error);
       if (error.message?.includes('user rejected')) {
@@ -135,13 +172,21 @@ export default function Home() {
       } else {
         setError(error.message || 'Transaction failed. Please try again.');
       }
+    } finally {
+      setIsUploading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-8">
-        <header className="flex justify-end mb-8">
+        <header className="flex justify-between items-center mb-8">
+          <Link 
+            href="/donors"
+            className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+          >
+            View Donors
+          </Link>
           <ConnectButton />
         </header>
 
@@ -170,29 +215,44 @@ export default function Home() {
             )}
             
             <div className="space-y-4">
-              <div className="flex gap-2 justify-center">
+              <div className="flex flex-col gap-4">
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={isPending || isConfirming || isUploading}
+                />
                 <input
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="Enter amount in ETH"
-                  className="w-48 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   min="0"
                   step="0.001"
-                  disabled={isPending || isConfirming}
+                  disabled={isPending || isConfirming || isUploading}
+                />
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Enter your message (minimum 50 characters)"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[100px]"
+                  disabled={isPending || isConfirming || isUploading}
                 />
                 <button
                   onClick={handleDonate}
-                  disabled={isPending || isConfirming || !isConnected}
+                  disabled={isPending || isConfirming || isUploading || !isConnected || message.length < 50 || !name.trim()}
                   className={`px-6 py-2.5 rounded-lg font-medium transition-colors ${
-                    isPending || isConfirming
+                    isPending || isConfirming || isUploading
                       ? 'bg-gray-400 cursor-not-allowed'
-                      : isConnected
+                      : isConnected && message.length >= 50 && name.trim()
                       ? 'bg-blue-500 hover:bg-blue-600 text-white'
                       : 'bg-gray-400 cursor-not-allowed'
                   }`}
                 >
-                  {isPending || isConfirming ? 'Processing...' : 'Donate'}
+                  {isPending || isConfirming ? 'Processing...' : isUploading ? 'Uploading Message...' : 'Donate'}
                 </button>
               </div>
               

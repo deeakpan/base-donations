@@ -1,21 +1,25 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { baseSepolia } from 'wagmi/chains';
-import { createConfig, http, WagmiProvider } from 'wagmi';
+import { getDefaultWallets, RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { WagmiProvider, createConfig, http } from 'wagmi';
+import { baseSepolia } from 'wagmi/chains';
 import '@rainbow-me/rainbowkit/styles.css';
 
-const config = getDefaultConfig({
-  appName: 'Donation App',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID',
+const { wallets } = getDefaultWallets({
+  appName: 'Base Builder Fund',
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '',
+});
+
+const config = createConfig({
   chains: [baseSepolia],
   transports: {
-    [baseSepolia.id]: http(process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org'),
+    [baseSepolia.id]: http('https://sepolia.base.org', {
+      timeout: 30000,
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
   },
-  ssr: false,
 });
 
 const queryClient = new QueryClient({
@@ -23,19 +27,29 @@ const queryClient = new QueryClient({
     queries: {
       retry: 3,
       retryDelay: 1000,
+      refetchOnWindowFocus: false,
+      staleTime: 30000,
     },
   },
 });
 
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <WagmiProvider config={config}>
-        <RainbowKitProvider>
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <RainbowKitProvider
+          initialChain={baseSepolia}
+          modalSize="compact"
+          showRecentTransactions={true}
+          appInfo={{
+            appName: 'Base Builder Fund',
+            learnMoreUrl: 'https://base.org',
+          }}
+        >
           {children}
         </RainbowKitProvider>
-      </WagmiProvider>
-    </QueryClientProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
   );
 }
 
