@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, useContractRead, useDisconnect, useWatchContractEvent } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, useWatchContractEvent } from 'wagmi';
 import {
   ConnectWallet,
   Wallet,
@@ -21,6 +21,10 @@ import { baseSepolia } from 'wagmi/chains';
 import lighthouse from '@lighthouse-web3/sdk';
 import Link from 'next/link';
 
+interface TransactionError {
+  message?: string;
+}
+
 export default function Home() {
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState('');
@@ -31,7 +35,6 @@ export default function Home() {
   const [isUploading, setIsUploading] = useState(false);
   const hasUploaded = useRef(false);
   const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
 
   // Get total donations from Etherscan V2
   useEffect(() => {
@@ -43,7 +46,7 @@ export default function Home() {
         const data = await response.json();
         if (data.result) {
           // Sum up all incoming transactions
-          const total = data.result.reduce((acc: number, tx: any) => {
+          const total = data.result.reduce((acc: number, tx: { to?: string; value: string }) => {
             if (tx.to?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase()) {
               return acc + Number(tx.value);
             }
@@ -91,13 +94,6 @@ export default function Home() {
     chainId: baseSepolia.id,
   });
 
-  // Debug logs
-  useEffect(() => {
-    console.log('Connection status:', isConnected);
-    console.log('Address:', address);
-    console.log('Balance:', balance);
-  }, [isConnected, address, balance]);
-
   const { writeContract, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
@@ -142,7 +138,7 @@ export default function Home() {
 
       uploadToLighthouse();
     }
-  }, [isSuccess]);
+  }, [isSuccess, name, message, address]);
 
   const handleDonate = async () => {
     setError('');
@@ -183,8 +179,7 @@ export default function Home() {
     }
 
     try {
-      // First, send the transaction
-      const tx = await writeContract({
+      await writeContract({
         abi: DonationContractABI,
         address: CONTRACT_ADDRESS as `0x${string}`,
         functionName: 'donate',
@@ -192,14 +187,15 @@ export default function Home() {
       });
 
       setSuccess('Transaction sent! Waiting for confirmation...');
-    } catch (error: any) {
-      console.error('Donation failed:', error);
-      if (error.message?.includes('user rejected')) {
+    } catch (error) {
+      const txError = error as TransactionError;
+      console.error('Donation failed:', txError);
+      if (txError.message?.includes('user rejected')) {
         setError('Transaction was rejected. Please try again.');
-      } else if (error.message?.includes('insufficient funds')) {
+      } else if (txError.message?.includes('insufficient funds')) {
         setError('Insufficient funds for gas * price + value');
       } else {
-        setError(error.message || 'Transaction failed. Please try again.');
+        setError(txError.message || 'Transaction failed. Please try again.');
       }
     }
   };
