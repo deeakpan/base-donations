@@ -1,8 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, useContractRead, useDisconnect, useWatchContractEvent } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import {
+  ConnectWallet,
+  Wallet,
+  WalletDropdown,
+  WalletDropdownDisconnect,
+} from '@coinbase/onchainkit/wallet';
+import {
+  Address,
+  Avatar,
+  Name,
+  Identity,
+  EthBalance,
+} from '@coinbase/onchainkit/identity';
 import { parseEther, formatEther } from 'viem';
 import { DonationContractABI, CONTRACT_ADDRESS, RECIPIENT_ADDRESS } from './contracts/DonationContract';
 import { baseSepolia } from 'wagmi/chains';
@@ -17,6 +29,7 @@ export default function Home() {
   const [success, setSuccess] = useState('');
   const [totalDonations, setTotalDonations] = useState('0');
   const [isUploading, setIsUploading] = useState(false);
+  const hasUploaded = useRef(false);
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
 
@@ -85,26 +98,63 @@ export default function Home() {
     chainId: baseSepolia.id,
   });
 
-  const { writeContract, data: hash, isPending } = useWriteContract();
+  // Debug logs
+  useEffect(() => {
+    console.log('Connection status:', isConnected);
+    console.log('Address:', address);
+    console.log('Balance:', balance);
+  }, [isConnected, address, balance]);
 
+  const { writeContract, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
     chainId: baseSepolia.id,
   });
 
-  // Update success message when transaction is confirmed
+  // Update success message and handle upload when transaction is confirmed
   useEffect(() => {
-    if (isSuccess) {
-      setSuccess('Thank you for your donation!');
-      setAmount('');
-      setMessage('');
-      setName('');
+    if (isSuccess && !hasUploaded.current) {
+      hasUploaded.current = true;
+      // Only upload to Lighthouse after successful transaction
+      setIsUploading(true);
+      const uploadToLighthouse = async () => {
+        try {
+          const response = await lighthouse.uploadText(
+            JSON.stringify({
+              name: name.trim(),
+              message,
+              timestamp: new Date().toISOString(),
+              donor: address
+            }),
+            process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY || '',
+            `donation-${name.trim().toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`
+          );
+
+          if (!response.data?.Hash) {
+            throw new Error('Failed to upload message to Lighthouse');
+          }
+
+          setSuccess('Thank you for your donation!');
+          // Reset all form fields
+          setAmount('');
+          setMessage('');
+          setName('');
+        } catch (uploadError) {
+          console.error('Lighthouse upload failed:', uploadError);
+          setError('Donation successful but failed to save message. Please contact support.');
+        } finally {
+          setIsUploading(false);
+        }
+      };
+
+      uploadToLighthouse();
     }
   }, [isSuccess]);
 
   const handleDonate = async () => {
     setError('');
     setSuccess('');
+    hasUploaded.current = false; // Reset the upload flag when starting a new donation
 
     if (!isConnected) {
       setError('Please connect your wallet first');
@@ -129,30 +179,18 @@ export default function Home() {
     const donationAmount = parseEther(amount);
     
     // Check if user has enough balance
-    if (balance && donationAmount > balance.value) {
+    if (!balance) {
+      setError('Unable to fetch your balance. Please try again.');
+      return;
+    }
+
+    if (donationAmount > balance.value) {
       setError(`Insufficient balance. You have ${formatEther(balance.value)} ETH`);
       return;
     }
 
     try {
-      setIsUploading(true);
-      
-      // Upload message to Lighthouse
-      const response = await lighthouse.uploadText(
-        JSON.stringify({
-          name: name.trim(),
-          message,
-          timestamp: new Date().toISOString(),
-          donor: address
-        }),
-        process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY || '',
-        `donation-${name.trim().toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`
-      );
-
-      if (!response.data?.Hash) {
-        throw new Error('Failed to upload message to Lighthouse');
-      }
-
+      // First, send the transaction
       const tx = await writeContract({
         abi: DonationContractABI,
         address: CONTRACT_ADDRESS as `0x${string}`,
@@ -161,8 +199,6 @@ export default function Home() {
       });
 
       setSuccess('Transaction sent! Waiting for confirmation...');
-      setMessage('');
-      setName('');
     } catch (error: any) {
       console.error('Donation failed:', error);
       if (error.message?.includes('user rejected')) {
@@ -172,8 +208,6 @@ export default function Home() {
       } else {
         setError(error.message || 'Transaction failed. Please try again.');
       }
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -181,13 +215,32 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-8">
         <header className="flex justify-between items-center mb-8">
-          <Link 
-            href="/donors"
-            className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            View Donors
-          </Link>
-          <ConnectButton />
+          <div className="flex items-center gap-4">
+            <Link 
+              href="/donors"
+              className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              View Donors
+            </Link>
+            <h1 className="text-2xl font-medium text-blue-500">Base Builder Fund</h1>
+          </div>
+          <div className="flex justify-end">
+            <Wallet>
+              <ConnectWallet>
+                <Avatar className="h-6 w-6" />
+                <Name />
+              </ConnectWallet>
+              <WalletDropdown>
+                <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick>
+                  <Avatar />
+                  <Name />
+                  <Address />
+                  <EthBalance />
+                </Identity>
+                <WalletDropdownDisconnect />
+              </WalletDropdown>
+            </Wallet>
+          </div>
         </header>
 
         <main className="max-w-2xl mx-auto">
@@ -205,14 +258,6 @@ export default function Home() {
                 Total Donations: {totalDonations} ETH
               </p>
             </div>
-            
-            {isConnected && balance && (
-              <div className="text-center mb-6">
-                <p className="text-gray-600 dark:text-gray-300">
-                  Your Balance: {formatEther(balance.value)} ETH
-                </p>
-              </div>
-            )}
             
             <div className="space-y-4">
               <div className="flex flex-col gap-4">

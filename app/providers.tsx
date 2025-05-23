@@ -1,54 +1,44 @@
 'use client';
 
-import { getDefaultWallets, RainbowKitProvider } from '@rainbow-me/rainbowkit';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WagmiProvider, createConfig, http } from 'wagmi';
+import { ReactNode } from 'react';
+import { OnchainKitProvider } from '@coinbase/onchainkit';
 import { baseSepolia } from 'wagmi/chains';
-import '@rainbow-me/rainbowkit/styles.css';
-
-const { wallets } = getDefaultWallets({
-  appName: 'Base Builder Fund',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '',
-});
+import { WagmiProvider, createConfig, http } from 'wagmi';
 
 const config = createConfig({
   chains: [baseSepolia],
   transports: {
-    [baseSepolia.id]: http('https://sepolia.base.org', {
-      timeout: 30000,
-      retryCount: 3,
-      retryDelay: 1000,
-    }),
+    [baseSepolia.id]: http(process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL || ''),
   },
 });
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 3,
-      retryDelay: 1000,
-      refetchOnWindowFocus: false,
-      staleTime: 30000,
-    },
-  },
-});
-
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children }: { children: ReactNode }) {
   return (
     <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider
-          initialChain={baseSepolia}
-          modalSize="compact"
-          showRecentTransactions={true}
-          appInfo={{
-            appName: 'Base Builder Fund',
-            learnMoreUrl: 'https://base.org',
-          }}
-        >
-          {children}
-        </RainbowKitProvider>
-      </QueryClientProvider>
+      <OnchainKitProvider
+        apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
+        chain={baseSepolia}
+        config={{
+          appearance: {
+            name: 'Base Builder Fund',
+            logo: '/logo.png',
+            mode: 'auto',
+            theme: 'default',
+          },
+          wallet: {
+            display: 'modal',
+            termsUrl: 'https://base.org/terms',
+            privacyUrl: 'https://base.org/privacy',
+            supportedWallets: {
+              rabby: true,
+              trust: true,
+              frame: true,
+            },
+          },
+        }}
+      >
+        {children}
+      </OnchainKitProvider>
     </WagmiProvider>
   );
 }
