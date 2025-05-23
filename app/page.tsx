@@ -16,7 +16,7 @@ import {
   EthBalance,
 } from '@coinbase/onchainkit/identity';
 import { parseEther, formatEther } from 'viem';
-import { DonationContractABI, CONTRACT_ADDRESS, RECIPIENT_ADDRESS } from './contracts/DonationContract';
+import { DonationContractABI, CONTRACT_ADDRESS } from './contracts/DonationContract';
 import { baseSepolia } from 'wagmi/chains';
 import lighthouse from '@lighthouse-web3/sdk';
 import Link from 'next/link';
@@ -84,13 +84,6 @@ export default function Home() {
       setTotalDonations(formatEther(contractBalance.value));
     }
   }, [contractBalance]);
-
-  // Get recipient address from contract
-  const { data: recipientAddress } = useContractRead({
-    address: CONTRACT_ADDRESS as `0x${string}`,
-    abi: DonationContractABI,
-    functionName: 'RECIPIENT',
-  });
 
   // Get user's ETH balance on Base Sepolia
   const { data: balance } = useBalance({

@@ -12,6 +12,17 @@ interface Donation {
   fileName: string;
 }
 
+interface LighthouseFile {
+  fileName: string;
+  cid: string;
+}
+
+interface LighthouseResponse {
+  data?: {
+    fileList?: LighthouseFile[];
+  };
+}
+
 export default function DonorsPage() {
   const [donations, setDonations] = useState<Donation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,23 +31,23 @@ export default function DonorsPage() {
   useEffect(() => {
     const fetchDonations = async () => {
       try {
-        const response = await lighthouse.getUploads(process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY || '');
+        const response = await lighthouse.getUploads(process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY || '') as LighthouseResponse;
         
         if (response.data?.fileList) {
           // Filter files that start with "donation-"
-          const donationFiles = response.data.fileList.filter((file: any) => 
+          const donationFiles = response.data.fileList.filter((file: LighthouseFile) => 
             file.fileName.startsWith('donation-')
           );
 
           // Fetch content for each donation file
-          const donationPromises = donationFiles.map(async (file: any) => {
+          const donationPromises = donationFiles.map(async (file: LighthouseFile) => {
             try {
               const response = await fetch(`https://gateway.lighthouse.storage/ipfs/${file.cid}`);
               if (!response.ok) {
                 throw new Error(`Failed to fetch file: ${response.statusText}`);
               }
               const content = await response.text();
-              const donationData = JSON.parse(content);
+              const donationData = JSON.parse(content) as Omit<Donation, 'fileName'>;
               return {
                 ...donationData,
                 fileName: file.fileName
