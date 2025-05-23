@@ -214,17 +214,17 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-8">
-        <header className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-4">
+        <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+          <div className="flex items-center gap-4 order-2 sm:order-1">
             <Link 
               href="/donors"
               className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
             >
               View Donors
             </Link>
-            <h1 className="text-2xl font-medium text-blue-500">Base Builder Fund</h1>
           </div>
-          <div className="flex justify-end">
+          <h1 className="text-2xl font-medium text-blue-500 order-1 sm:order-2">Base Builder Fund</h1>
+          <div className="flex justify-end order-3">
             <Wallet>
               <ConnectWallet>
                 <Avatar className="h-6 w-6" />
@@ -319,6 +319,11 @@ export default function Home() {
             <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
               <p>Built on Base Sepolia Testnet</p>
               <p className="mt-2">Your support helps us build the future of decentralized applications</p>
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-xs">
+                  This is an independent demo project built by Dee. Not affiliated with or endorsed by Base or Coinbase.
+                </p>
+              </div>
             </div>
           </div>
         </main>
